@@ -1,0 +1,34 @@
+# Quick end-to-end smoke test: same architecture as baseline, just 300 iters and
+# light eval, so the whole pipeline can be validated in ~1 minute on MPS.
+name: smoke
+seed: 1337
+dataset: shakespeare_char
+data_dir: data/shakespeare_char
+
+model:
+  block_size: 256
+  vocab_size: null
+  n_layer: 6
+  n_head: 6
+  n_embd: 384
+  dropout: 0.2
+  bias: true
+
+train:
+  batch_size: 64
+  max_iters: 300
+  eval_interval: 100
+  eval_iters: 50
+  log_interval: 50
+  learning_rate: 1.0e-3
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.99
+  grad_clip: 1.0
+  warmup_iters: 50
+  lr_decay_iters: 300
+  min_lr: 1.0e-4
+  device: auto
+  dtype: auto
+  compile: false
+  out_dir: out/smoke

@@ -1,0 +1,42 @@
+# =============================================================================
+# baseline.yaml  —  Step 0 of the upgrade chain: a vanilla GPT-2-style model.
+#
+# Every later experiment in the chain copies this file and changes ONE thing,
+# so that ablations are apples-to-apples (same data, same seed, same budget).
+# Defaults are tuned to train in a few minutes on an Apple-Silicon GPU (MPS).
+# =============================================================================
+name: baseline
+seed: 1337
+
+# --- data -------------------------------------------------------------------
+dataset: shakespeare_char        # produced by `python data/prepare.py`
+data_dir: data/shakespeare_char
+
+# --- model (GPT-2 architecture, just small) ---------------------------------
+model:
+  block_size: 256                # context length (max tokens the model sees)
+  vocab_size: null               # auto-filled from data/<dataset>/meta.pkl
+  n_layer: 6
+  n_head: 6
+  n_embd: 384
+  dropout: 0.2
+  bias: true                     # GPT-2 uses bias in Linear & LayerNorm
+
+# --- training ---------------------------------------------------------------
+train:
+  batch_size: 64
+  max_iters: 5000
+  eval_interval: 250
+  eval_iters: 200
+  learning_rate: 1.0e-3
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.99
+  grad_clip: 1.0
+  warmup_iters: 100
+  lr_decay_iters: 5000
+  min_lr: 1.0e-4
+  device: auto                   # auto -> cuda > mps > cpu
+  dtype: auto                    # auto picks bf16/fp16 where supported, else fp32
+  compile: false                 # torch.compile (leave off on MPS for now)
+  out_dir: out/baseline
