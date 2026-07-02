@@ -15,7 +15,7 @@ out/
 # logs
 *.log
 wandb/
-runs/
+/runs/
 
 # os
 .DS_Store

@@ -13,8 +13,9 @@ runs on a single consumer GPU (and on Apple-Silicon MPS).
 现代 LLM 区别于 GPT-2 的改进——**每一步都是自包含的，并在同一个小模型 / 同一份数据
 / 同一个随机种子上做前后消融对比**。全程可在一张消费级 GPU（含 Apple Silicon MPS）上复现。
 
-> ⚠️ **Status: work in progress.** Building the Step-0 baseline first.
-> 状态：开发中，正在搭第 0 步基线。
+> ⚠️ **Status: work in progress.** Step-0 baseline code is in place; first full
+> CUDA training run is next.
+> 状态：开发中，Step 0 基线代码已搭好，下一步是在 CUDA 机器上完成首次完整训练。
 
 ## The upgrade chain / 升级链
 
@@ -26,7 +27,7 @@ runs on a single consumer GPU (and on Apple-Silicon MPS).
 - [ ] **Step 3 — RMSNorm** (replace LayerNorm)
 - [ ] **Step 4 — SwiGLU** FFN (replace GELU MLP)
 - [ ] **Step 5 — GQA + KV cache**
-- [ ] **Step 6 — better init / LR schedule, weight tying, SDPA/FlashAttention**
+- [ ] **Step 6 — SDPA/FlashAttention + compile/performance cleanup**
 - [ ] **Step 7 — one frontier piece**: MoE *or* MLA (DeepSeek)
 - [ ] **Step 8 — SFT**: turn it into a tiny chat model
 - [ ] *(stretch)* tiny DPO/GRPO; interactive web demo
@@ -34,17 +35,62 @@ runs on a single consumer GPU (and on Apple-Silicon MPS).
 ## Quickstart / 快速开始
 
 ```bash
-# 1. environment (Python 3.13 venv)
+# 1. environment (Python 3.11/3.12 recommended)
 python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 
 # 2. prepare data (downloads ~1MB tiny-shakespeare, char-level)
 .venv/bin/python data/prepare.py
 
-# 3. train the Step-0 baseline            # (coming next)
+# 3. train the Step-0 baseline
 .venv/bin/python train.py --config configs/baseline.yaml
 
-# 4. sample from a checkpoint             # (coming next)
+# 4. sample from a checkpoint
 .venv/bin/python eval/generate.py --out_dir out/baseline
+```
+
+For the RTX 5070 Windows training machine:
+
+```bash
+python scripts/check_env.py
+python data/prepare.py
+python train.py --config configs/baseline_5070.yaml
+python eval/generate.py --out_dir out/baseline_5070 --start "ROMEO:" --output_file out/baseline_5070/samples.txt
+python scripts/plot_log.py --log out/baseline_5070/log.csv --out out/baseline_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/baseline_5070
+```
+
+Run the local unit tests before pushing code to the training machine:
+
+```bash
+python -m unittest discover -s tests
+```
+
+Step 1 BPE tokenizer run:
+
+```bash
+python data/prepare_bpe.py --vocab_size 8000
+python train.py --config configs/bpe_5070.yaml
+python eval/generate.py --out_dir out/bpe_5070 --start "ROMEO:" --output_file out/bpe_5070/samples.txt
+python scripts/plot_log.py --log out/bpe_5070/log.csv --out out/bpe_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/bpe_5070
+```
+
+Step 2 RoPE run:
+
+```bash
+python train.py --config configs/rope_5070.yaml
+python eval/generate.py --out_dir out/rope_5070 --start "ROMEO:" --output_file out/rope_5070/samples.txt
+python scripts/plot_log.py --log out/rope_5070/log.csv --out out/rope_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/rope_5070
+```
+
+Step 3 RMSNorm run:
+
+```bash
+python train.py --config configs/rmsnorm_5070.yaml
+python eval/generate.py --out_dir out/rmsnorm_5070 --start "ROMEO:" --output_file out/rmsnorm_5070/samples.txt
+python scripts/plot_log.py --log out/rmsnorm_5070/log.csv --out out/rmsnorm_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/rmsnorm_5070
 ```
 
 ## Repo layout / 目录结构
@@ -57,13 +103,24 @@ configs/    # one YAML per ablation (reproducibility)
 eval/       # sampling, loss/throughput benchmarks
 docs/       # the "why" write-up + ablation tables for each step
 demo/       # Colab notebook + (stretch) web visualization
+reports/    # lightweight run artifacts that can be committed
 ```
 
 ## Why this exists / 为什么做这个
 
-Most "LLM from scratch" repos either stop at vanilla GPT-2 or hand you a finished
-modern model. Few show the **delta** between them — what each modern trick buys
-you, measured. This repo is that delta, made reproducible and cheap.
+Most open LLM repos are either production-scale training systems or compact
+from-scratch baselines. This project focuses on the missing middle: a tiny,
+readable, step-by-step modernization path from GPT-2 to today's LLM architecture,
+where every upgrade is measured in isolation.
+
+## Related work / 相关项目
+
+This project is inspired by small readable baselines such as nanoGPT/minGPT, but
+its output is an upgrade chain rather than a single baseline. It is also not a
+replacement for large training systems such as EleutherAI GPT-Neo: those projects
+focus on distributed training and released model weights, while this repo focuses
+on small, controlled ablations that explain how each modern LLM component changes
+the baseline.
 
 ## Credits
 

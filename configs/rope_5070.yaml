@@ -1,0 +1,37 @@
+# Step 2 RoPE run for the RTX 5070 Laptop workflow.
+#
+# This should be compared against configs/bpe_5070.yaml. Data, model size,
+# optimizer, and training budget stay fixed; only position_embedding changes.
+name: rope_5070
+seed: 1337
+dataset: shakespeare_bpe
+data_dir: data/shakespeare_bpe
+
+model:
+  block_size: 256
+  vocab_size: null
+  n_layer: 6
+  n_head: 6
+  n_embd: 384
+  dropout: 0.2
+  bias: true
+  position_embedding: rope
+
+train:
+  batch_size: 64
+  max_iters: 5000
+  eval_interval: 250
+  eval_iters: 200
+  log_interval: 50
+  learning_rate: 1.0e-3
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.99
+  grad_clip: 1.0
+  warmup_iters: 100
+  lr_decay_iters: 5000
+  min_lr: 1.0e-4
+  device: cuda
+  dtype: auto
+  compile: false
+  out_dir: out/rope_5070

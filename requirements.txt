@@ -2,3 +2,5 @@ torch>=2.4
 numpy
 pyyaml
 tqdm
+matplotlib
+tokenizers

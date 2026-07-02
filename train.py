@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import math
 import os
 import pickle
@@ -57,6 +58,20 @@ def get_lr(it: int, t: dict) -> float:
     return t["min_lr"] + coeff * (t["learning_rate"] - t["min_lr"])
 
 
+def build_gpt_config(model_cfg: dict) -> GPTConfig:
+    """Merge YAML model overrides with GPTConfig defaults.
+
+    This keeps old experiment configs valid as new switchable components are
+    added to GPTConfig, while still catching misspelled config keys.
+    """
+    defaults = asdict(GPTConfig())
+    unknown = sorted(set(model_cfg) - set(defaults))
+    if unknown:
+        raise ValueError(f"unknown model config keys: {unknown}")
+    defaults.update(model_cfg)
+    return GPTConfig(**defaults)
+
+
 # --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
@@ -80,10 +95,11 @@ def main() -> None:
 
     # --- data (memory-mapped token streams) --------------------------------
     data_dir = cfg["data_dir"]
-    train_data = np.memmap(os.path.join(data_dir, "train.bin"), dtype=np.uint16, mode="r")
-    val_data = np.memmap(os.path.join(data_dir, "val.bin"), dtype=np.uint16, mode="r")
     with open(os.path.join(data_dir, "meta.pkl"), "rb") as f:
         meta = pickle.load(f)
+    token_dtype = np.dtype(meta.get("dtype", "uint16"))
+    train_data = np.memmap(os.path.join(data_dir, "train.bin"), dtype=token_dtype, mode="r")
+    val_data = np.memmap(os.path.join(data_dir, "val.bin"), dtype=token_dtype, mode="r")
     block_size = m_cfg["block_size"]
     batch_size = t["batch_size"]
 
@@ -96,7 +112,11 @@ def main() -> None:
 
     # --- model -------------------------------------------------------------
     m_cfg["vocab_size"] = meta["vocab_size"]  # fill from data
-    gptconf = GPTConfig(**{k: m_cfg[k] for k in GPTConfig.__dataclass_fields__})
+    gptconf = build_gpt_config(m_cfg)
+    resolved_cfg = dict(cfg)
+    resolved_cfg["model"] = asdict(gptconf)
+    with open(os.path.join(out_dir, "config.yaml"), "w") as f:
+        yaml.safe_dump(resolved_cfg, f, sort_keys=False)
     model = GPT(gptconf).to(device)
     print(f"model params (non-embedding): {model.get_num_params():,}")
 
@@ -132,6 +152,7 @@ def main() -> None:
 
     # --- training loop -----------------------------------------------------
     best_val = float("inf")
+    last_eval = None
     tokens_per_iter = batch_size * block_size
     t0 = time.time()
     model.train()
@@ -144,6 +165,7 @@ def main() -> None:
         # periodic evaluation + checkpoint
         if it % t["eval_interval"] == 0:
             losses = estimate_loss()
+            last_eval = {"iter": it, "train_loss": losses["train"], "val_loss": losses["val"], "lr": lr}
             print(f"iter {it:5d} | train {losses['train']:.4f} | val {losses['val']:.4f} | lr {lr:.2e}")
             logger.writerow([it, "eval_train", f"{losses['train']:.4f}", f"{lr:.2e}", "", ""])
             logger.writerow([it, "eval_val", f"{losses['val']:.4f}", f"{lr:.2e}", "", ""])
@@ -156,7 +178,7 @@ def main() -> None:
                         "model_args": asdict(gptconf),
                         "iter": it,
                         "best_val_loss": best_val,
-                        "config": cfg,
+                        "config": resolved_cfg,
                     },
                     os.path.join(out_dir, "ckpt.pt"),
                 )
@@ -188,6 +210,20 @@ def main() -> None:
             t0 = time.time()
 
     log_file.close()
+    with open(os.path.join(out_dir, "summary.json"), "w") as f:
+        json.dump(
+            {
+                "name": cfg.get("name"),
+                "seed": cfg.get("seed"),
+                "device": device,
+                "dtype": str(amp_dtype).replace("torch.", "") if use_amp else "fp32",
+                "best_val_loss": best_val,
+                "last_eval": last_eval,
+                "checkpoint": os.path.join(out_dir, "ckpt.pt"),
+            },
+            f,
+            indent=2,
+        )
     print(f"done. best val loss = {best_val:.4f}. checkpoint -> {os.path.join(out_dir, 'ckpt.pt')}")
 
 
