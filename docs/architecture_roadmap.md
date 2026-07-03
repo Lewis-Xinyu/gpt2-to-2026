@@ -220,20 +220,63 @@ their key/value tensors. GQA stores fewer K/V heads, reducing cache memory.
 生成时，历史 token 不会改变。KV cache 会复用历史 token 的 key/value。GQA 进一步减少 K/V
 head 数量，从而降低 cache 显存。
 
-## 7. Future Interactive Demo / 未来交互式 Demo
+## 7. Possible Next Improvements / 后续可以改进的点
 
-The eventual demo should let a reader click a step and see synchronized views:
+This roadmap should become more useful as real training results come in. The
+next improvements are practical and incremental:
 
-未来的 Demo 可以让读者点击某一步，然后同时看到：
+这张路线图后面应该随着真实训练结果继续补充。比较实际的改进方向有：
 
-- architecture diff / 架构差异：模型哪里变了
-- metrics diff / 指标差异：loss、tokens/sec、显存、checkpoint 大小
-- behavior diff / 行为差异：同一个 prompt 的生成样例
-- code diff / 代码差异：关键模块对应的最小代码变化
+### 7.1 Add Results Beside Each Step / 给每一步补实验结果
 
-The first useful version can be a static web page backed by exported
-`reports/runs/<name>/` artifacts. A later version can load checkpoints locally
-and generate text interactively.
+After the RTX 5070 runs are finished, each step should show:
 
-第一个版本可以先做成静态网页，读取 `reports/runs/<name>/` 中导出的结果。后续版本再支持本地加载
-checkpoint 并交互式生成文本。
+等 RTX 5070 上的训练跑完后，每一步都应该补上：
+
+- validation loss / 验证集 loss
+- tokens per second / 训练吞吐
+- generation speed with and without cache / 有无 KV cache 的生成速度
+- sample outputs from the same prompt / 同一个 prompt 的生成样例
+
+This will make the roadmap more than a concept map: readers can see whether a
+component changes quality, speed, memory, or mainly code structure.
+
+这样路线图就不只是概念图，而是能回答更具体的问题：某个组件到底影响质量、速度、显存，
+还是主要改变了代码结构。
+
+### 7.2 Add More Detailed Component Diagrams / 继续细化组件图
+
+Some parts still deserve their own diagrams:
+
+还有几块值得单独画得更清楚：
+
+- **Causal attention / 因果注意力**：why future tokens are masked  
+  为什么生成模型不能看到未来 token。
+- **RoPE / 旋转位置编码**：how q/k pairs are rotated  
+  q/k 向量是怎么按位置旋转的。
+- **GQA / 分组查询注意力**：how query heads share fewer KV heads  
+  多个 query head 如何共享更少的 key/value head。
+- **KV cache / KV 缓存**：what is reused during token-by-token generation  
+  逐 token 生成时到底复用了什么。
+
+### 7.3 Build a Static Comparison Page / 做一个静态对比页面
+
+The first demo does not need to load models. A useful first version can simply
+read exported files from `reports/runs/<name>/` and show:
+
+第一个 Demo 不需要加载模型。一个有用的初版可以直接读取 `reports/runs/<name>/` 中导出的文件，
+展示：
+
+- the changed module / 这一步改了哪个模块
+- the config used for the run / 使用的训练配置
+- the loss curve / loss 曲线
+- generated samples / 生成样例
+- notes about what improved or got worse / 对结果的简短分析
+
+### 7.4 Later: Interactive Checkpoint Demo / 后续再做 checkpoint 交互 Demo
+
+After enough checkpoints exist, a later demo can load them locally and let the
+reader use the same prompt across multiple steps.
+
+等 checkpoint 足够多之后，再做真正的本地交互 Demo：读者输入同一个 prompt，选择不同 Step 的
+checkpoint，观察输出如何变化。

@@ -97,17 +97,44 @@ structured like a real experiment lab:
 
 ## Start Here / 从这里开始
 
-Read the visual overview and step notes:
+If you are new to GPT-style models, read these pages in order. They are written
+as a learning path, not as isolated notes.
 
-先读图解总览和每一步说明：
+如果你刚开始系统学习 GPT 类模型，建议按下面顺序读。每一节都对应一个明确的问题：
+“这一步为什么出现？它改了模型哪里？代码里怎么实现？”
 
-- [Architecture Roadmap / 架构路线图](docs/architecture_roadmap.md)
-- [Step 0: Vanilla GPT-2 Baseline](docs/step0_baseline.md)
-- [Step 1: BPE Tokenizer](docs/step1_bpe.md)
-- [Step 2: RoPE](docs/step2_rope.md)
-- [Step 3: RMSNorm](docs/step3_rmsnorm.md)
-- [Step 4: SwiGLU](docs/step4_swiglu.md)
-- [Step 5: GQA + KV Cache](docs/step5_gqa_kv_cache.md)
+1. [Architecture Roadmap / 架构路线图](docs/architecture_roadmap.md)  
+   A visual overview of the whole project: data flow, GPT block structure, and
+   where each upgrade attaches.  
+   先看总图：文本如何变成 token，GPT block 里面有哪些模块，每一步升级分别改在哪里。
+
+2. [Step 0: Vanilla GPT-2 Baseline](docs/step0_baseline.md)  
+   Build the reference model: learned position embeddings, LayerNorm, GELU MLP,
+   causal multi-head attention, and next-token training.  
+   搭出参照组：可学习位置编码、LayerNorm、GELU MLP、因果多头注意力，以及 next-token 训练。
+
+3. [Step 1: BPE Tokenizer](docs/step1_bpe.md)  
+   Replace character tokens with byte-level BPE so the tiny model is closer to
+   how real GPT-style models consume text.  
+   把字符级 token 换成 byte-level BPE，让模型处理文本的方式更接近真实 GPT。
+
+4. [Step 2: RoPE](docs/step2_rope.md)  
+   Move position information from a learned absolute table into query/key
+   rotations inside attention.  
+   把位置信息从“可学习位置表”挪到 attention 的 q/k 旋转里，这是现代 LLM 常见做法。
+
+5. [Step 3: RMSNorm](docs/step3_rmsnorm.md)  
+   Replace LayerNorm with a simpler normalization used by many decoder-only LLMs.  
+   用 RMSNorm 替代 LayerNorm，理解现代 decoder-only LLM 为什么常用更轻量的归一化。
+
+6. [Step 4: SwiGLU](docs/step4_swiglu.md)  
+   Replace GPT-2's GELU feed-forward network with a gated MLP.  
+   把 GPT-2 的 GELU MLP 换成带门控的 SwiGLU，观察 FFN 模块如何演进。
+
+7. [Step 5: GQA + KV Cache](docs/step5_gqa_kv_cache.md)  
+   Add grouped-query attention and cached generation, mainly to study inference
+   speed and KV memory.  
+   加入 GQA 和 KV cache，重点观察生成速度和 KV cache 显存，而不是只看 loss。
 
 Run local tests:
 
@@ -159,17 +186,29 @@ Full run commands live in [docs/experiment_plan.md](docs/experiment_plan.md).
 
 完整实验命令见 [docs/experiment_plan.md](docs/experiment_plan.md)。
 
-## Future Demo / 未来交互 Demo
+## Future Improvements / 后续可以改进的点
 
-After the training runs are exported, this project should grow a small visual
-demo where readers can click a step and compare:
+The current repo already has the code path for Steps 0-5. After the CUDA runs
+are finished, the next useful improvements are:
 
-等训练结果导出后，本项目适合做一个小型可视化 Demo，让读者点击每一步并对比：
+当前仓库已经有 Step 0-5 的代码路径。等 CUDA 训练结果跑完后，比较值得继续做的是：
 
-- architecture diff / 架构差异
-- validation loss and throughput / 验证 loss 与吞吐
-- KV cache memory and decode speed / KV cache 显存与解码速度
-- generated samples from the same prompt / 同一个 prompt 下的生成样例
+- Add result tables to each step page: validation loss, tokens/sec, training
+  time, and sample outputs.  
+  在每个 Step 文档里补结果表：验证 loss、tokens/sec、训练耗时和生成样例。
+
+- Add clearer diagrams for each component, especially attention, RoPE, GQA, and
+  KV cache.  
+  继续补图，尤其是 attention、RoPE、GQA 和 KV cache，这些最容易看懵。
+
+- Build a small static web page from `reports/runs/<name>/`, so readers can
+  click a step and compare the model before and after the upgrade.  
+  基于 `reports/runs/<name>/` 做一个静态网页，让读者点击某一步就能看到升级前后的结构、
+  指标和生成样例。
+
+- Later, add an interactive local demo that loads checkpoints and generates text
+  with the same prompt across different steps.  
+  更后面可以做本地交互 Demo：加载不同 checkpoint，用同一个 prompt 对比生成效果。
 
 ## Repo Layout / 目录结构
 
