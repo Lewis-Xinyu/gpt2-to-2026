@@ -1,54 +1,108 @@
 # gpt2-to-2026
 
-> **Modernize GPT-2 into a 2026-era LLM, one readable, benchmarked commit at a time.**
-> 从 GPT-2 到 2026：把每一个现代 LLM 的改进，做成一次可读、可复现、带消融实验的升级。
+> **From GPT-2 to modern LLMs: a hands-on roadmap of architecture upgrades,
+> readable PyTorch code, and controlled ablation experiments.**
+>
+> 从 GPT-2 到现代 LLM：用最小 PyTorch 实现、图解文档和消融实验，理解大模型架构是如何一步步演进的。
 
-`gpt2-to-2026` is a from-scratch teaching project. It starts from the simplest
-working GPT-2-style baseline and then applies the architectural upgrades that
-separate a 2018 GPT-2 from a 2026 open LLM — **each as a self-contained step with
-a before/after ablation on the same tiny model, same data, same seed**. Everything
-runs on a single consumer GPU (and on Apple-Silicon MPS).
+`gpt2-to-2026` is not a production LLM repo and not a personal note dump. It is a
+small, reproducible learning lab: start from a GPT-2-style baseline, then add one
+modern LLM component at a time under the same tiny model, same data, same seed,
+and same reporting format.
 
-这是一个**从零手写**的教学项目。它从最朴素、能跑通的 GPT-2 基线出发，逐个加入让
-现代 LLM 区别于 GPT-2 的改进——**每一步都是自包含的，并在同一个小模型 / 同一份数据
-/ 同一个随机种子上做前后消融对比**。全程可在一张消费级 GPU（含 Apple Silicon MPS）上复现。
+The goal is to make the delta visible: what changes in the code, why modern
+models use it, and what it does to loss, throughput, memory, and generation.
 
-> ⚠️ **Status: work in progress.** Step-0 baseline code is in place; first full
-> CUDA training run is next.
-> 状态：开发中，Step 0 基线代码已搭好，下一步是在 CUDA 机器上完成首次完整训练。
+## Roadmap
 
-## The upgrade chain / 升级链
-
-每一步 = 代码模块 + 一段「为什么」+ 消融表。Each step = a code module + a "why" note + an ablation table.
-
-- [x] **Step 0 — Baseline**: vanilla GPT-2 (learned pos-emb, LayerNorm, GELU MLP, MHA)
-- [ ] **Step 1 — BPE tokenizer** (replace char-level)
-- [ ] **Step 2 — RoPE** rotary position embeddings
-- [ ] **Step 3 — RMSNorm** (replace LayerNorm)
-- [ ] **Step 4 — SwiGLU** FFN (replace GELU MLP)
-- [ ] **Step 5 — GQA + KV cache**
-- [ ] **Step 6 — SDPA/FlashAttention + compile/performance cleanup**
-- [ ] **Step 7 — one frontier piece**: MoE *or* MLA (DeepSeek)
-- [ ] **Step 8 — SFT**: turn it into a tiny chat model
-- [ ] *(stretch)* tiny DPO/GRPO; interactive web demo
-
-## Quickstart / 快速开始
-
-```bash
-# 1. environment (Python 3.11/3.12 recommended)
-python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
-
-# 2. prepare data (downloads ~1MB tiny-shakespeare, char-level)
-.venv/bin/python data/prepare.py
-
-# 3. train the Step-0 baseline
-.venv/bin/python train.py --config configs/baseline.yaml
-
-# 4. sample from a checkpoint
-.venv/bin/python eval/generate.py --out_dir out/baseline
+```text
+GPT-2 baseline
+  -> BPE tokenizer
+  -> RoPE
+  -> RMSNorm
+  -> SwiGLU
+  -> GQA + KV cache
+  -> SDPA / FlashAttention
+  -> one frontier block: MoE or MLA
+  -> tiny SFT
+  -> stretch: DPO/GRPO, RAG/Agent demo
 ```
 
-For the RTX 5070 Windows training machine:
+Each step should include:
+
+- readable implementation
+- config for a controlled experiment
+- short explanation of why it exists
+- tests for the new path
+- exported run artifacts once trained
+
+## Progress
+
+| Step | Upgrade | Status | Notes |
+| --- | --- | --- | --- |
+| 0 | Vanilla GPT-2 baseline | Code ready | Learned pos-emb, LayerNorm, GELU MLP, MHA |
+| 1 | BPE tokenizer | Code ready | Replaces char-level tokenization |
+| 2 | RoPE | Code ready | Replaces learned absolute position table |
+| 3 | RMSNorm | Code ready | Replaces LayerNorm |
+| 4 | SwiGLU | Code ready | Replaces GELU MLP |
+| 5 | GQA + KV cache | Code ready | Adds fewer KV heads and cached generation |
+| 6 | SDPA / FlashAttention | Planned | Fused attention and speed comparison |
+| 7 | MoE or MLA | Planned | One frontier architecture block |
+| 8 | Tiny SFT | Planned | Turn the tiny LM into an instruction-following toy |
+
+First full CUDA training runs are still pending. The current focus is preparing a
+clean experiment suite before running everything on a consumer NVIDIA GPU.
+
+## Who Is This For?
+
+- CS students who want to understand LLMs from code, not only papers
+- deep learning learners who know basic PyTorch and want a next project
+- developers curious about what changed between GPT-2 and modern open LLMs
+- anyone who prefers small, runnable ablations over giant training systems
+
+## What Makes It Different?
+
+Most open LLM repos are either compact GPT baselines or production-scale training
+systems. This repo focuses on the missing middle: a small upgrade path where each
+modern component is isolated, implemented, tested, and eventually benchmarked.
+
+The project is intentionally small enough to run on a single consumer GPU, but
+structured like a real experiment lab:
+
+- `configs/` keeps one YAML per ablation
+- `docs/` explains the purpose of every step
+- `tests/` protects model invariants like causality and cache correctness
+- `reports/runs/` stores lightweight results, not giant checkpoints
+
+## Start Here
+
+Read the steps:
+
+- [Architecture Roadmap](docs/architecture_roadmap.md)
+- [Step 0: Vanilla GPT-2 Baseline](docs/step0_baseline.md)
+- [Step 1: BPE Tokenizer](docs/step1_bpe.md)
+- [Step 2: RoPE](docs/step2_rope.md)
+- [Step 3: RMSNorm](docs/step3_rmsnorm.md)
+- [Step 4: SwiGLU](docs/step4_swiglu.md)
+- [Step 5: GQA + KV Cache](docs/step5_gqa_kv_cache.md)
+
+Run local tests:
+
+```bash
+.venv/bin/python -m unittest discover -s tests
+```
+
+Prepare the tiny Shakespeare char dataset and train Step 0:
+
+```bash
+.venv/bin/python data/prepare.py
+.venv/bin/python train.py --config configs/baseline.yaml
+.venv/bin/python eval/generate.py --out_dir out/baseline --start "ROMEO:"
+```
+
+## CUDA Experiment Flow
+
+For the RTX 5070 / NVIDIA training machine:
 
 ```bash
 python scripts/check_env.py
@@ -59,91 +113,42 @@ python scripts/plot_log.py --log out/baseline_5070/log.csv --out out/baseline_50
 python scripts/export_run.py --out_dir out/baseline_5070
 ```
 
-Run the local unit tests before pushing code to the training machine:
-
-```bash
-python -m unittest discover -s tests
-```
-
-Step 1 BPE tokenizer run:
+Then continue with:
 
 ```bash
 python data/prepare_bpe.py --vocab_size 8000
 python train.py --config configs/bpe_5070.yaml
-python eval/generate.py --out_dir out/bpe_5070 --start "ROMEO:" --output_file out/bpe_5070/samples.txt
-python scripts/plot_log.py --log out/bpe_5070/log.csv --out out/bpe_5070/loss_curve.png
-python scripts/export_run.py --out_dir out/bpe_5070
-```
-
-Step 2 RoPE run:
-
-```bash
 python train.py --config configs/rope_5070.yaml
-python eval/generate.py --out_dir out/rope_5070 --start "ROMEO:" --output_file out/rope_5070/samples.txt
-python scripts/plot_log.py --log out/rope_5070/log.csv --out out/rope_5070/loss_curve.png
-python scripts/export_run.py --out_dir out/rope_5070
-```
-
-Step 3 RMSNorm run:
-
-```bash
 python train.py --config configs/rmsnorm_5070.yaml
-python eval/generate.py --out_dir out/rmsnorm_5070 --start "ROMEO:" --output_file out/rmsnorm_5070/samples.txt
-python scripts/plot_log.py --log out/rmsnorm_5070/log.csv --out out/rmsnorm_5070/loss_curve.png
-python scripts/export_run.py --out_dir out/rmsnorm_5070
-```
-
-Step 4 SwiGLU run:
-
-```bash
 python train.py --config configs/swiglu_5070.yaml
-python eval/generate.py --out_dir out/swiglu_5070 --start "ROMEO:" --output_file out/swiglu_5070/samples.txt
-python scripts/plot_log.py --log out/swiglu_5070/log.csv --out out/swiglu_5070/loss_curve.png
-python scripts/export_run.py --out_dir out/swiglu_5070
-```
-
-Step 5 GQA + KV cache run:
-
-```bash
 python train.py --config configs/gqa_5070.yaml
-python eval/generate.py --out_dir out/gqa_5070 --start "ROMEO:" --output_file out/gqa_5070/samples.txt --use_cache
-python scripts/plot_log.py --log out/gqa_5070/log.csv --out out/gqa_5070/loss_curve.png
-python scripts/export_run.py --out_dir out/gqa_5070
 ```
 
-## Repo layout / 目录结构
+Full run commands live in [docs/experiment_plan.md](docs/experiment_plan.md).
 
+## Repo Layout
+
+```text
+model/      readable model components
+data/       dataset preparation scripts
+configs/    one YAML per ablation
+eval/       sampling and generation utilities
+docs/       explanations for each step
+scripts/    environment checks, plotting, export helpers
+reports/    lightweight run artifacts that can be committed
+tests/      model and config behavior tests
 ```
-model/      # readable, standalone components (baseline_gpt.py, rope.py, ...)
-tokenizer/  # BPE training & encoding (introduced at Step 1)
-data/       # dataset preparation scripts
-configs/    # one YAML per ablation (reproducibility)
-eval/       # sampling, loss/throughput benchmarks
-docs/       # the "why" write-up + ablation tables for each step
-demo/       # Colab notebook + (stretch) web visualization
-reports/    # lightweight run artifacts that can be committed
-```
 
-## Why this exists / 为什么做这个
-
-Most open LLM repos are either production-scale training systems or compact
-from-scratch baselines. This project focuses on the missing middle: a tiny,
-readable, step-by-step modernization path from GPT-2 to today's LLM architecture,
-where every upgrade is measured in isolation.
-
-## Related work / 相关项目
-
-This project is inspired by small readable baselines such as nanoGPT/minGPT, but
-its output is an upgrade chain rather than a single baseline. It is also not a
-replacement for large training systems such as EleutherAI GPT-Neo: those projects
-focus on distributed training and released model weights, while this repo focuses
-on small, controlled ablations that explain how each modern LLM component changes
-the baseline.
-
-## Credits
+## Related Work
 
 Inspired by [karpathy/nanoGPT](https://github.com/karpathy/nanoGPT) and
-[karpathy/minGPT](https://github.com/karpathy/minGPT). Built as a learning project.
+[karpathy/minGPT](https://github.com/karpathy/minGPT), but the output is an
+upgrade chain rather than a single baseline.
+
+This is also not a replacement for large training systems such as EleutherAI
+GPT-Neo. Those projects focus on distributed training and released model
+weights; this repo focuses on small, controlled ablations that explain how each
+modern LLM component changes the GPT-2 baseline.
 
 ## License
 
