@@ -2,7 +2,7 @@ import unittest
 
 import torch
 
-from model.baseline_gpt import GPT, GPTConfig, RMSNorm
+from model.baseline_gpt import GPT, GPTConfig, RMSNorm, SwiGLUMLP
 from train import build_gpt_config
 
 
@@ -27,6 +27,12 @@ def tiny_rope_config() -> GPTConfig:
 def tiny_rmsnorm_config() -> GPTConfig:
     cfg = tiny_rope_config()
     cfg.norm_type = "rmsnorm"
+    return cfg
+
+
+def tiny_swiglu_config() -> GPTConfig:
+    cfg = tiny_rmsnorm_config()
+    cfg.mlp_type = "swiglu"
     return cfg
 
 
@@ -123,6 +129,17 @@ class BaselineGPTTest(unittest.TestCase):
 
         self.assertEqual(cfg.position_embedding, "learned")
         self.assertEqual(cfg.norm_type, "layernorm")
+        self.assertEqual(cfg.mlp_type, "gelu")
+
+    def test_swiglu_forward(self):
+        model = GPT(tiny_swiglu_config()).eval()
+        idx = torch.randint(0, model.config.vocab_size, (2, 8))
+
+        logits, loss = model(idx, idx)
+
+        self.assertEqual(logits.shape, (2, 8, model.config.vocab_size))
+        self.assertTrue(torch.isfinite(loss))
+        self.assertIsInstance(model.transformer.h[0].mlp, SwiGLUMLP)
 
 
 if __name__ == "__main__":

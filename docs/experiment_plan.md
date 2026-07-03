@@ -78,3 +78,16 @@ python scripts/export_run.py --out_dir out/rmsnorm_5070
 ```
 
 Compare against `rope_5070`; keep tokenizer, RoPE, model size, and training budget fixed.
+
+## Step 4 SwiGLU
+
+Run after Step 3 has a clean RMSNorm result:
+
+```bash
+python train.py --config configs/swiglu_5070.yaml
+python eval/generate.py --out_dir out/swiglu_5070 --start "ROMEO:" --output_file out/swiglu_5070/samples.txt
+python scripts/plot_log.py --log out/swiglu_5070/log.csv --out out/swiglu_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/swiglu_5070
+```
+
+Compare against `rmsnorm_5070`; keep tokenizer, RoPE, RMSNorm, model size, and training budget fixed.

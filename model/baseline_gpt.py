@@ -39,6 +39,7 @@ class GPTConfig:
     bias: bool = True            # GPT-2 uses bias in Linear & LayerNorm layers
     position_embedding: str = "learned"  # learned (GPT-2) or rope (Step 2)
     norm_type: str = "layernorm"          # layernorm (GPT-2) or rmsnorm (Step 3)
+    mlp_type: str = "gelu"                # gelu (GPT-2) or swiglu (Step 4)
 
 
 class RotaryEmbedding(nn.Module):
@@ -188,6 +189,37 @@ class MLP(nn.Module):
         return self.dropout(self.c_proj(self.gelu(self.c_fc(x))))
 
 
+class SwiGLUMLP(nn.Module):
+    """Gated feed-forward network used by many modern decoder-only LLMs.
+
+    GPT-2 uses Linear -> GELU -> Linear. SwiGLU uses a learned gate:
+        SiLU(W_gate x) * W_value x
+
+    The hidden size is about 2/3 of the GELU MLP's 4x width, which keeps the
+    parameter count in the same neighborhood while adding the gating mechanism.
+    """
+
+    def __init__(self, config: GPTConfig):
+        super().__init__()
+        hidden_dim = math.ceil((8 * config.n_embd / 3) / 8) * 8
+        self.w_gate = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
+        self.w_value = nn.Linear(config.n_embd, hidden_dim, bias=config.bias)
+        self.c_proj = nn.Linear(hidden_dim, config.n_embd, bias=config.bias)
+        self.dropout = nn.Dropout(config.dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.silu(self.w_gate(x)) * self.w_value(x)
+        return self.dropout(self.c_proj(x))
+
+
+def build_mlp(config: GPTConfig) -> nn.Module:
+    if config.mlp_type == "gelu":
+        return MLP(config)
+    if config.mlp_type == "swiglu":
+        return SwiGLUMLP(config)
+    raise ValueError(f"unknown mlp_type: {config.mlp_type}")
+
+
 class Block(nn.Module):
     """A transformer block with PRE-norm residual connections (GPT-2 style):
 
@@ -203,7 +235,7 @@ class Block(nn.Module):
         self.ln_1 = build_norm(config)
         self.attn = CausalSelfAttention(config)
         self.ln_2 = build_norm(config)
-        self.mlp = MLP(config)
+        self.mlp = build_mlp(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x + self.attn(self.ln_1(x))
@@ -217,6 +249,7 @@ class GPT(nn.Module):
         assert config.vocab_size is not None and config.block_size is not None
         assert config.position_embedding in {"learned", "rope"}
         assert config.norm_type in {"layernorm", "rmsnorm"}
+        assert config.mlp_type in {"gelu", "swiglu"}
         self.config = config
         modules = dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),   # token emb

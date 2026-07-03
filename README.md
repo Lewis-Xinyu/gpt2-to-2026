@@ -93,6 +93,15 @@ python scripts/plot_log.py --log out/rmsnorm_5070/log.csv --out out/rmsnorm_5070
 python scripts/export_run.py --out_dir out/rmsnorm_5070
 ```
 
+Step 4 SwiGLU run:
+
+```bash
+python train.py --config configs/swiglu_5070.yaml
+python eval/generate.py --out_dir out/swiglu_5070 --start "ROMEO:" --output_file out/swiglu_5070/samples.txt
+python scripts/plot_log.py --log out/swiglu_5070/log.csv --out out/swiglu_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/swiglu_5070
+```
+
 ## Repo layout / 目录结构
 
 ```
