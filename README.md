@@ -102,6 +102,15 @@ python scripts/plot_log.py --log out/swiglu_5070/log.csv --out out/swiglu_5070/l
 python scripts/export_run.py --out_dir out/swiglu_5070
 ```
 
+Step 5 GQA + KV cache run:
+
+```bash
+python train.py --config configs/gqa_5070.yaml
+python eval/generate.py --out_dir out/gqa_5070 --start "ROMEO:" --output_file out/gqa_5070/samples.txt --use_cache
+python scripts/plot_log.py --log out/gqa_5070/log.csv --out out/gqa_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/gqa_5070
+```
+
 ## Repo layout / 目录结构
 
 ```

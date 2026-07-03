@@ -11,6 +11,7 @@ import argparse
 import os
 import pickle
 import sys
+import time
 
 import torch
 
@@ -37,6 +38,7 @@ def main() -> None:
     ap.add_argument("--top_k", type=int, default=200)
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--output_file", default=None, help="optional path to save generated samples")
+    ap.add_argument("--use_cache", action="store_true", help="use KV cache during generation")
     args = ap.parse_args()
 
     device = pick_device()
@@ -84,11 +86,32 @@ def main() -> None:
         "",
     ]
     for i in range(args.num_samples):
-        y = model.generate(x, args.max_new_tokens, temperature=args.temperature, top_k=args.top_k)
+        t0 = time.time()
+        y = model.generate(
+            x,
+            args.max_new_tokens,
+            temperature=args.temperature,
+            top_k=args.top_k,
+            use_cache=args.use_cache,
+        )
+        if device == "cuda":
+            torch.cuda.synchronize()
+        elif device == "mps":
+            torch.mps.synchronize()
+        dt = time.time() - t0
+        tok_s = args.max_new_tokens / dt if dt > 0 else 0.0
         sample = decode(y[0].tolist())
         print(f"\n----- sample {i + 1} -----")
+        print(f"generation: {dt:.2f}s, {tok_s:.1f} tok/s, cache={args.use_cache}")
         print(sample)
-        chunks.extend([f"----- sample {i + 1} -----", sample, ""])
+        chunks.extend(
+            [
+                f"----- sample {i + 1} -----",
+                f"generation: {dt:.2f}s, {tok_s:.1f} tok/s, cache={args.use_cache}",
+                sample,
+                "",
+            ]
+        )
 
     if args.output_file:
         os.makedirs(os.path.dirname(os.path.abspath(args.output_file)), exist_ok=True)

@@ -40,6 +40,7 @@ class GPTConfig:
     position_embedding: str = "learned"  # learned (GPT-2) or rope (Step 2)
     norm_type: str = "layernorm"          # layernorm (GPT-2) or rmsnorm (Step 3)
     mlp_type: str = "gelu"                # gelu (GPT-2) or swiglu (Step 4)
+    n_kv_head: int | None = None          # None -> MHA; smaller than n_head -> GQA (Step 5)
 
 
 class RotaryEmbedding(nn.Module):
@@ -56,9 +57,9 @@ class RotaryEmbedding(nn.Module):
         inv_freq = 1.0 / (base ** (torch.arange(0, head_dim, 2).float() / head_dim))
         self.register_buffer("inv_freq", inv_freq)
 
-    def forward(self, q: torch.Tensor, k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, q: torch.Tensor, k: torch.Tensor, start_pos: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
         T = q.size(-2)
-        pos = torch.arange(T, device=q.device, dtype=self.inv_freq.dtype)
+        pos = torch.arange(start_pos, start_pos + T, device=q.device, dtype=self.inv_freq.dtype)
         freqs = torch.outer(pos, self.inv_freq)
         cos = freqs.cos().to(dtype=q.dtype)[None, None, :, :]
         sin = freqs.sin().to(dtype=q.dtype)[None, None, :, :]
@@ -128,12 +129,18 @@ class CausalSelfAttention(nn.Module):
         super().__init__()
         assert config.n_embd % config.n_head == 0
         self.n_head = config.n_head
+        self.n_kv_head = config.n_kv_head or config.n_head
+        assert config.n_head % self.n_kv_head == 0
         self.n_embd = config.n_embd
         self.head_dim = config.n_embd // config.n_head
         self.rotary = RotaryEmbedding(self.head_dim) if config.position_embedding == "rope" else None
+        kv_dim = self.n_kv_head * self.head_dim
 
-        # One projection produces q, k, v for ALL heads at once, then we split.
-        self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
+        # MHA uses n_kv_head == n_head. GQA uses fewer k/v heads and repeats them
+        # across query-head groups, shrinking the KV cache at generation time.
+        self.c_q = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
+        self.c_k = nn.Linear(config.n_embd, kv_dim, bias=config.bias)
+        self.c_v = nn.Linear(config.n_embd, kv_dim, bias=config.bias)
         # Output projection that mixes the heads back together.
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
 
@@ -149,30 +156,60 @@ class CausalSelfAttention(nn.Module):
             ),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, T, C = x.shape
+    @staticmethod
+    def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
+        if n_rep == 1:
+            return x
+        B, H, T, D = x.shape
+        return x[:, :, None, :, :].expand(B, H, n_rep, T, D).reshape(B, H * n_rep, T, D)
 
-        # Project to q, k, v and reshape to (B, n_head, T, head_dim).
-        q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
+    def forward(
+        self,
+        x: torch.Tensor,
+        past_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
+        use_cache: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        B, T, C = x.shape
+        past_len = 0 if past_kv is None else past_kv[0].size(-2)
+
+        # Project to q, k, v and reshape to (B, n_head, T, head_dim). GQA keeps
+        # fewer k/v heads than q heads.
+        q = self.c_q(x)
+        k = self.c_k(x)
+        v = self.c_v(x)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
-        k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
-        v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+        k = k.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
+        v = v.view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         if self.rotary is not None:
-            q, k = self.rotary(q, k)
+            q, k = self.rotary(q, k, start_pos=past_len)
+        if past_kv is not None:
+            past_k, past_v = past_kv
+            k = torch.cat((past_k, k), dim=-2)
+            v = torch.cat((past_v, v), dim=-2)
+        present = (k, v) if use_cache else None
+        k_for_attn = self.repeat_kv(k, self.n_head // self.n_kv_head)
+        v_for_attn = self.repeat_kv(v, self.n_head // self.n_kv_head)
 
         # ---- explicit scaled dot-product attention -------------------------
         # scores[b,h,i,j] = how much query i attends to key j   -> (B, nh, T, T)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
+        att = (q @ k_for_attn.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
         # causal mask: a token may not look at future tokens (j > i).
-        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
+        k_len = k_for_attn.size(-2)
+        q_pos = torch.arange(past_len, past_len + T, device=x.device)[:, None]
+        k_pos = torch.arange(0, k_len, device=x.device)[None, :]
+        causal = (k_pos <= q_pos).view(1, 1, T, k_len)
+        att = att.masked_fill(~causal, float("-inf"))
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
-        y = att @ v                              # (B, nh, T, head_dim)
+        y = att @ v_for_attn                     # (B, nh, T, head_dim)
         # --------------------------------------------------------------------
 
         # Re-assemble all heads side by side: (B, T, C).
         y = y.transpose(1, 2).contiguous().view(B, T, C)
-        return self.resid_dropout(self.c_proj(y))
+        y = self.resid_dropout(self.c_proj(y))
+        if use_cache:
+            return y, present
+        return y
 
 
 class MLP(nn.Module):
@@ -237,9 +274,20 @@ class Block(nn.Module):
         self.ln_2 = build_norm(config)
         self.mlp = build_mlp(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln_1(x))
+    def forward(
+        self,
+        x: torch.Tensor,
+        past_kv: tuple[torch.Tensor, torch.Tensor] | None = None,
+        use_cache: bool = False,
+    ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        attn_out = self.attn(self.ln_1(x), past_kv=past_kv, use_cache=use_cache)
+        present = None
+        if use_cache:
+            attn_out, present = attn_out
+        x = x + attn_out
         x = x + self.mlp(self.ln_2(x))
+        if use_cache:
+            return x, present
         return x
 
 
@@ -250,6 +298,8 @@ class GPT(nn.Module):
         assert config.position_embedding in {"learned", "rope"}
         assert config.norm_type in {"layernorm", "rmsnorm"}
         assert config.mlp_type in {"gelu", "swiglu"}
+        n_kv_head = config.n_kv_head or config.n_head
+        assert 0 < n_kv_head <= config.n_head and config.n_head % n_kv_head == 0
         self.config = config
         modules = dict(
             wte=nn.Embedding(config.vocab_size, config.n_embd),   # token emb
@@ -288,20 +338,33 @@ class GPT(nn.Module):
             n -= self.transformer.wpe.weight.numel()  # wte is tied, counted once
         return n
 
-    def forward(self, idx: torch.Tensor, targets: torch.Tensor | None = None):
+    def forward(
+        self,
+        idx: torch.Tensor,
+        targets: torch.Tensor | None = None,
+        past_kv: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
+        use_cache: bool = False,
+    ):
         B, T = idx.shape
-        assert T <= self.config.block_size, f"sequence length {T} > block_size"
+        past_len = 0 if past_kv is None else past_kv[0][0].size(-2)
+        assert past_len + T <= self.config.block_size, f"sequence length {past_len + T} > block_size"
 
         tok_emb = self.transformer.wte(idx)   # (B, T, C) token meanings
         if self.config.position_embedding == "learned":
-            pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
+            pos = torch.arange(past_len, past_len + T, dtype=torch.long, device=idx.device)
             pos_emb = self.transformer.wpe(pos)   # (T, C)    "where am I"
             x = tok_emb + pos_emb
         else:
             x = tok_emb
         x = self.transformer.drop(x)
-        for block in self.transformer.h:
-            x = block(x)
+        presents = [] if use_cache else None
+        for i, block in enumerate(self.transformer.h):
+            layer_past = None if past_kv is None else past_kv[i]
+            if use_cache:
+                x, present = block(x, past_kv=layer_past, use_cache=True)
+                presents.append(present)
+            else:
+                x = block(x)
         x = self.transformer.ln_f(x)
 
         if targets is not None:
@@ -309,9 +372,13 @@ class GPT(nn.Module):
             loss = F.cross_entropy(
                 logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=-1
             )
+            if use_cache:
+                return logits, loss, presents
             return logits, loss
         # Inference shortcut: only compute logits for the LAST position.
         logits = self.lm_head(x[:, [-1], :])
+        if use_cache:
+            return logits, None, presents
         return logits, None
 
     def configure_optimizers(self, weight_decay, learning_rate, betas, device_type):
@@ -328,12 +395,19 @@ class GPT(nn.Module):
         return torch.optim.AdamW(groups, lr=learning_rate, betas=betas, fused=fused)
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, use_cache=False):
         """Autoregressively sample max_new_tokens, feeding predictions back in."""
+        past_kv = None
         for _ in range(max_new_tokens):
             # Crop context to the last block_size tokens (the model's memory).
             idx_cond = idx[:, -self.config.block_size :]
-            logits, _ = self(idx_cond)
+            if use_cache:
+                if past_kv is None:
+                    logits, _, past_kv = self(idx_cond, use_cache=True)
+                else:
+                    logits, _, past_kv = self(idx[:, [-1]], past_kv=past_kv, use_cache=True)
+            else:
+                logits, _ = self(idx_cond)
             logits = logits[:, -1, :] / temperature
             if top_k is not None:
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))

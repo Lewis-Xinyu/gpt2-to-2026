@@ -36,6 +36,14 @@ def tiny_swiglu_config() -> GPTConfig:
     return cfg
 
 
+def tiny_gqa_config() -> GPTConfig:
+    cfg = tiny_swiglu_config()
+    cfg.n_head = 4
+    cfg.n_kv_head = 2
+    cfg.n_embd = 16
+    return cfg
+
+
 class BaselineGPTTest(unittest.TestCase):
     def test_forward_returns_full_logits_and_loss(self):
         torch.manual_seed(1337)
@@ -130,6 +138,7 @@ class BaselineGPTTest(unittest.TestCase):
         self.assertEqual(cfg.position_embedding, "learned")
         self.assertEqual(cfg.norm_type, "layernorm")
         self.assertEqual(cfg.mlp_type, "gelu")
+        self.assertIsNone(cfg.n_kv_head)
 
     def test_swiglu_forward(self):
         model = GPT(tiny_swiglu_config()).eval()
@@ -140,6 +149,36 @@ class BaselineGPTTest(unittest.TestCase):
         self.assertEqual(logits.shape, (2, 8, model.config.vocab_size))
         self.assertTrue(torch.isfinite(loss))
         self.assertIsInstance(model.transformer.h[0].mlp, SwiGLUMLP)
+
+    def test_gqa_forward(self):
+        model = GPT(tiny_gqa_config()).eval()
+        idx = torch.randint(0, model.config.vocab_size, (2, 8))
+
+        logits, loss = model(idx, idx)
+
+        self.assertEqual(logits.shape, (2, 8, model.config.vocab_size))
+        self.assertTrue(torch.isfinite(loss))
+        self.assertEqual(model.transformer.h[0].attn.n_kv_head, 2)
+
+    def test_kv_cache_matches_full_forward_last_logits(self):
+        torch.manual_seed(1337)
+        model = GPT(tiny_gqa_config()).eval()
+        idx = torch.randint(0, model.config.vocab_size, (1, 6))
+
+        full_logits, _ = model(idx)
+        _, _, past = model(idx[:, :-1], use_cache=True)
+        cached_logits, _, _ = model(idx[:, [-1]], past_kv=past, use_cache=True)
+
+        self.assertTrue(torch.allclose(full_logits, cached_logits, atol=1e-5))
+
+    def test_generate_with_cache_extends_sequence(self):
+        torch.manual_seed(1337)
+        model = GPT(tiny_gqa_config()).eval()
+        idx = torch.tensor([[1, 2, 3]])
+
+        out = model.generate(idx, max_new_tokens=5, temperature=1.0, top_k=4, use_cache=True)
+
+        self.assertEqual(out.shape, (1, 8))
 
 
 if __name__ == "__main__":

@@ -91,3 +91,17 @@ python scripts/export_run.py --out_dir out/swiglu_5070
 ```
 
 Compare against `rmsnorm_5070`; keep tokenizer, RoPE, RMSNorm, model size, and training budget fixed.
+
+## Step 5 GQA + KV Cache
+
+Run after Step 4 has a clean SwiGLU result:
+
+```bash
+python train.py --config configs/gqa_5070.yaml
+python eval/generate.py --out_dir out/gqa_5070 --start "ROMEO:" --output_file out/gqa_5070/samples.txt --use_cache
+python scripts/plot_log.py --log out/gqa_5070/log.csv --out out/gqa_5070/loss_curve.png
+python scripts/export_run.py --out_dir out/gqa_5070
+```
+
+Compare against `swiglu_5070`; for decode speed, generate from both checkpoints
+with and without `--use_cache`.
