@@ -1,0 +1,1255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gpt2-to-2026 Architecture Viewer</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f0e8;
+      --paper: #fffdfa;
+      --paper-soft: #faf6ef;
+      --ink: #24211d;
+      --muted: #756c61;
+      --faint: #9b9185;
+      --line: #ded4c6;
+      --line-strong: #cbbba7;
+      --accent: #b96643;
+      --accent-dark: #7d3f2b;
+      --accent-soft: #f4dfd1;
+      --green: #5b7a61;
+      --green-soft: #e5efdf;
+      --shadow: 0 20px 60px rgba(72, 56, 39, 0.13);
+      --radius: 8px;
+      --fast: 180ms cubic-bezier(.2, .8, .2, 1);
+      --slow: 420ms cubic-bezier(.2, .8, .2, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      background:
+        linear-gradient(90deg, rgba(185, 102, 67, 0.05) 1px, transparent 1px),
+        linear-gradient(180deg, #f8f4ec 0%, var(--bg) 48%, #ece4d7 100%);
+      background-size: 44px 44px, auto;
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    button, a { -webkit-tap-highlight-color: transparent; }
+
+    .page {
+      width: min(1320px, calc(100vw - 34px));
+      margin: 0 auto;
+      padding: 26px 0 42px;
+    }
+
+    .hero,
+    .panel,
+    .step-nav,
+    .details,
+    .compare-panel,
+    .metric-panel {
+      background: rgba(255, 253, 250, 0.92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 370px;
+      gap: 34px;
+      padding: 30px;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      font-weight: 760;
+      margin-bottom: 14px;
+    }
+
+    .brand svg,
+    .icon svg,
+    .module-icon svg,
+    .mini-icon svg,
+    .primary-action svg,
+    .text-action svg,
+    .metric-name svg,
+    .cube svg,
+    .cube-dashed svg {
+      width: 1em;
+      height: 1em;
+      display: block;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    h1 {
+      max-width: 800px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(38px, 5vw, 62px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      font-weight: 760;
+    }
+
+    .hero-zh {
+      display: block;
+      margin-top: 6px;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: clamp(28px, 3.4vw, 42px);
+      font-weight: 820;
+    }
+
+    .lead {
+      max-width: 720px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 15px;
+      overflow-wrap: anywhere;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .primary-action,
+    .text-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      border-radius: 7px;
+      font-size: 13px;
+      font-weight: 760;
+      text-decoration: none;
+    }
+
+    .primary-action svg,
+    .text-action svg {
+      flex: 0 0 auto;
+      font-size: 18px;
+    }
+
+    .primary-action {
+      padding: 0 15px;
+      background: var(--accent);
+      color: #fffaf4;
+      border: 1px solid var(--accent);
+    }
+
+    .text-action {
+      color: var(--ink);
+      border: 1px solid transparent;
+    }
+
+    .hero-cards {
+      display: grid;
+      align-content: center;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: linear-gradient(180deg, rgba(255, 253, 250, 0.78), rgba(248, 244, 236, 0.78));
+      padding: 14px;
+    }
+
+    .hero-card {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-card:last-child { border-bottom: 0; }
+
+    .icon,
+    .mini-icon {
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+    }
+
+    .icon { font-size: 25px; }
+
+    .hero-card strong {
+      display: block;
+      font-size: 13px;
+    }
+
+    .hero-card span {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 246px minmax(0, 1fr) 336px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .step-nav {
+      padding: 14px;
+    }
+
+    .section-label {
+      color: var(--faint);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .timeline {
+      display: grid;
+      margin-top: 14px;
+    }
+
+    .step-button {
+      position: relative;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr) 8px;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      padding: 9px;
+      text-align: left;
+      transition: background var(--fast), border-color var(--fast), transform var(--fast);
+    }
+
+    .step-button::before {
+      content: "";
+      position: absolute;
+      left: 26px;
+      top: -9px;
+      width: 1px;
+      height: 18px;
+      border-left: 1px dashed var(--line-strong);
+    }
+
+    .step-button:first-child::before { content: none; }
+
+    .step-button:hover {
+      background: #f7f0e6;
+      border-color: #eadfce;
+    }
+
+    .step-button.active {
+      background: var(--accent-soft);
+      border-color: #d6ad95;
+      transform: translateX(2px);
+    }
+
+    .step-number {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--paper);
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .step-button.active .step-number {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fffaf4;
+    }
+
+    .step-title {
+      display: block;
+      overflow-wrap: anywhere;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .step-subtitle {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+    }
+
+    .step-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: transparent;
+    }
+
+    .step-button.active .step-dot { background: var(--accent); }
+
+    .doc-shortcut {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 12px 8px 0;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .doc-shortcut span {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .panel {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+      padding: 18px 20px 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    .panel-subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .status {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border: 1px solid #d3e2ce;
+      border-radius: 7px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .architecture {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+      padding: 24px 24px 30px;
+    }
+
+    .module {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      min-height: 154px;
+      padding: 12px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: linear-gradient(180deg, #fffdfa, #f8f3eb);
+      animation: riseIn 360ms ease both;
+      transition: border-color var(--fast), background var(--fast), box-shadow var(--fast), transform var(--fast);
+    }
+
+    .module:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .module.changed {
+      border-color: #cf805c;
+      background: linear-gradient(180deg, #fff8f1, #f5dece);
+      box-shadow: 0 12px 28px rgba(185, 102, 67, 0.17);
+      transform: translateY(-3px);
+    }
+
+    .module.future {
+      border-style: dashed;
+    }
+
+    .module-icon {
+      color: var(--ink);
+      font-size: 22px;
+      min-height: 24px;
+    }
+
+    .module-label {
+      margin-top: 10px;
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .module-value {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 850;
+      line-height: 1.18;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .module-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
+
+    .repeat-note {
+      display: inline-flex;
+      align-items: center;
+      justify-self: center;
+      gap: 8px;
+      margin: -12px 0 20px;
+      padding: 5px 12px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 5px;
+      color: var(--muted);
+      background: var(--paper-soft);
+      font-size: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 18px;
+      padding: 0 20px 18px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .legend-box {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--paper);
+    }
+
+    .legend-box.changed {
+      border-color: #cf805c;
+      background: var(--accent-soft);
+    }
+
+    .legend-box.future {
+      border-style: dashed;
+    }
+
+    .details {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .details-head {
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .details-body {
+      display: grid;
+      gap: 20px;
+      padding: 18px 20px;
+    }
+
+    .info-block {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .mini-icon {
+      padding-top: 2px;
+      color: var(--accent-dark);
+      font-size: 20px;
+    }
+
+    .info-block h3 {
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .info-block p,
+    .code-list,
+    .metric-list {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .zh {
+      margin-top: 4px;
+      color: #51483f;
+    }
+
+    .code-list,
+    .metric-list {
+      display: grid;
+      gap: 6px;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .code-list code {
+      display: inline-flex;
+      max-width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #f5eee5;
+      color: var(--accent-dark);
+      padding: 2px 6px;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 428px;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .compare-panel,
+    .metric-panel {
+      padding: 18px 20px;
+    }
+
+    .compare-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+      margin-top: 12px;
+    }
+
+    .compare-card {
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 88px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--paper-soft);
+      padding: 13px;
+    }
+
+    .compare-card.after {
+      border-color: #d49a7d;
+      background: #fff0e6;
+    }
+
+    .cube,
+    .cube-dashed {
+      color: var(--accent);
+      font-size: 28px;
+    }
+
+    .cube-dashed { color: var(--faint); }
+
+    .compare-label {
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .compare-value {
+      margin-top: 5px;
+      font-size: 13px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .flow-arrow {
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 22px;
+      font-weight: 850;
+    }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .metric-cell {
+      min-height: 78px;
+      padding: 11px 10px;
+      border-right: 1px solid var(--line);
+      background: rgba(255, 253, 250, 0.72);
+    }
+
+    .metric-cell:last-child { border-right: 0; }
+
+    .metric-name {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .metric-value {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @keyframes riseIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .hero,
+      .workspace,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .architecture {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .module:not(:last-child)::after { content: none; }
+    }
+
+    @media (max-width: 680px) {
+      .page {
+        width: calc(100vw - 22px);
+        padding-top: 16px;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: clamp(34px, 9.5vw, 42px);
+      }
+
+      .hero-zh {
+        font-size: clamp(24px, 7vw, 30px);
+      }
+
+      .hero-cards,
+      .status {
+        width: 100%;
+      }
+
+      .panel-head,
+      .compare-flow {
+        grid-template-columns: 1fr;
+      }
+
+      .architecture,
+      .metric-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .metric-cell {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .metric-cell:last-child { border-bottom: 0; }
+
+      .flow-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <section>
+        <div class="brand" id="brandIcon"></div>
+        <h1>
+          <span>From GPT-2 to Modern LLMs</span>
+          <span class="hero-zh">从 GPT-2 到现代大模型的架构演进之路</span>
+        </h1>
+        <p class="lead">
+          Understand how each key component evolved, one step at a time.
+          <br>
+          用最小可运行实验，一步步理解大模型关键组件如何演进。
+        </p>
+        <div class="actions">
+          <a class="primary-action" href="#roadmap" id="openRoadmap"></a>
+          <a class="text-action" href="https://github.com/Lewis-Xinyu/gpt2-to-2026" target="_blank" rel="noreferrer" id="githubLink"></a>
+        </div>
+      </section>
+
+      <aside class="hero-cards" aria-label="Project positioning">
+        <div class="hero-card">
+          <span class="icon" data-icon="graduation"></span>
+          <p><strong>For learners / 面向学习者</strong><span>CS students, developers, deep learning beginners<br>CS 学生、开发者、深度学习学习者</span></p>
+        </div>
+        <div class="hero-card">
+          <span class="icon" data-icon="flask"></span>
+          <p><strong>Hands-on / 动手实践</strong><span>Readable code, controlled ablations<br>可读代码、受控消融实验</span></p>
+        </div>
+        <div class="hero-card">
+          <span class="icon" data-icon="chart"></span>
+          <p><strong>Progressive / 逐步演进</strong><span>Start from GPT-2 baseline and upgrade components<br>从 GPT-2 baseline 开始逐步升级组件</span></p>
+        </div>
+      </aside>
+    </header>
+
+    <section class="workspace" id="roadmap">
+      <nav class="step-nav" aria-label="Architecture steps">
+        <div class="section-label">Select a Step / 选择步骤</div>
+        <div class="timeline" id="timeline"></div>
+        <a class="doc-shortcut" href="architecture_roadmap.md">
+          <span class="mini-icon" data-icon="book"></span>
+          <p>Docs / 文档<br><span>查看所有步骤说明</span></p>
+          <strong>›</strong>
+        </a>
+      </nav>
+
+      <section class="panel" aria-live="polite">
+        <div class="panel-head">
+          <div>
+            <h2>Architecture Overview / 架构总览</h2>
+            <p class="panel-subtitle" id="overviewText"></p>
+          </div>
+          <span class="status" id="statusBadge"></span>
+        </div>
+        <div class="architecture" id="architecture"></div>
+        <div class="repeat-note">× N decoder blocks / 重复 N 层</div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-box"></span>Unchanged / 未变</span>
+          <span class="legend-item"><span class="legend-box changed"></span>Changed in this step / 本步变化</span>
+          <span class="legend-item"><span class="legend-box future"></span>Future steps / 后续变化</span>
+        </div>
+      </section>
+
+      <aside class="details">
+        <div class="details-head">
+          <div class="section-label">Step Explanation / 步骤说明</div>
+        </div>
+        <div class="details-body">
+          <section class="info-block">
+            <span class="mini-icon" data-icon="pencil"></span>
+            <div>
+              <h3>What changed / 改了什么</h3>
+              <p id="changeText"></p>
+              <p class="zh" id="changeTextZh"></p>
+            </div>
+          </section>
+          <section class="info-block">
+            <span class="mini-icon" data-icon="star"></span>
+            <div>
+              <h3>Why it matters / 为什么重要</h3>
+              <p id="whyText"></p>
+              <p class="zh" id="whyTextZh"></p>
+            </div>
+          </section>
+          <section class="info-block">
+            <span class="mini-icon" data-icon="code"></span>
+            <div>
+              <h3>Code / 相关代码</h3>
+              <ul class="code-list" id="codeList"></ul>
+            </div>
+          </section>
+          <section class="info-block">
+            <span class="mini-icon" data-icon="bars"></span>
+            <div>
+              <h3>Metrics to compare later / 后续要对比的指标</h3>
+              <ul class="metric-list" id="metricList"></ul>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </section>
+
+    <section class="bottom-grid">
+      <section class="compare-panel">
+        <div class="section-label">Before / After / 前后对比</div>
+        <div class="compare-flow">
+          <article class="compare-card">
+            <span class="cube-dashed" data-icon="cube"></span>
+            <div>
+              <div class="compare-label">Before / 之前</div>
+              <div class="compare-value" id="beforeText"></div>
+            </div>
+          </article>
+          <div class="flow-arrow">→</div>
+          <article class="compare-card after">
+            <span class="cube" data-icon="cube"></span>
+            <div>
+              <div class="compare-label">After / 之后</div>
+              <div class="compare-value" id="afterText"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="metric-panel">
+        <div class="section-label">Future Metrics / 未来指标</div>
+        <div class="metric-strip" id="metricStrip"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const icons = {
+      code: '<svg viewBox="0 0 24 24"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="m14 5-4 14"/></svg>',
+      map: '<svg viewBox="0 0 24 24"><path d="M9 18 3 21V6l6-3 6 3 6-3v15l-6 3-6-3Z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>',
+      external: '<svg viewBox="0 0 24 24"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
+      graduation: '<svg viewBox="0 0 24 24"><path d="m22 10-10-5-10 5 10 5 10-5Z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/></svg>',
+      flask: '<svg viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7 16h10"/></svg>',
+      chart: '<svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20V8"/></svg>',
+      book: '<svg viewBox="0 0 24 24"><path d="M4 19a3 3 0 0 1 3-3h13"/><path d="M4 5a3 3 0 0 1 3-3h13v20H7a3 3 0 0 0-3 3V5Z"/></svg>',
+      pencil: '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z"/></svg>',
+      star: '<svg viewBox="0 0 24 24"><path d="m12 2 3 6 6.5.9-4.7 4.6 1.1 6.5L12 17l-5.9 3 1.1-6.5L2.5 8.9 9 8l3-6Z"/></svg>',
+      bars: '<svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20V8"/></svg>',
+      token: '<svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M12 5v14"/><path d="M8 19h8"/></svg>',
+      grid: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="4" height="4"/><rect x="10" y="4" width="4" height="4"/><rect x="16" y="4" width="4" height="4"/><rect x="4" y="10" width="4" height="4"/><rect x="10" y="10" width="4" height="4"/><rect x="16" y="10" width="4" height="4"/><rect x="4" y="16" width="4" height="4"/><rect x="10" y="16" width="4" height="4"/><rect x="16" y="16" width="4" height="4"/></svg>',
+      wave: '<svg viewBox="0 0 24 24"><path d="M3 12c3-6 6-6 9 0s6 6 9 0"/></svg>',
+      nodes: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M7 12h3"/><path d="M14 12h3"/><path d="M12 7v3"/><path d="M12 14v3"/></svg>',
+      layers: '<svg viewBox="0 0 24 24"><path d="m12 3 8 4-8 4-8-4 8-4Z"/><path d="m4 12 8 4 8-4"/><path d="m4 17 8 4 8-4"/></svg>',
+      network: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 11 10.5 6.5"/><path d="m7 13 3.5 4.5"/><path d="m13.5 6.5 3.5 4.5"/><path d="m13.5 17.5 3.5-4.5"/></svg>',
+      head: '<svg viewBox="0 0 24 24"><path d="M4 20V6"/><path d="M4 20h16"/><path d="M8 16v-4"/><path d="M13 16V8"/><path d="M18 16v-7"/></svg>',
+      cube: '<svg viewBox="0 0 24 24"><path d="m12 2 8 4.5v9L12 20l-8-4.5v-9L12 2Z"/><path d="M12 11 4.5 6.8"/><path d="m12 11 7.5-4.2"/><path d="M12 11v9"/></svg>',
+      speed: '<svg viewBox="0 0 24 24"><path d="M4 14a8 8 0 1 1 16 0"/><path d="m13 13 4-4"/><path d="M3 20h18"/></svg>',
+      database: '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>',
+      sample: '<svg viewBox="0 0 24 24"><path d="M7 8h10"/><path d="M7 12h6"/><path d="M21 12a9 9 0 1 1-4.7-7.9"/></svg>'
+    };
+
+    const baseModules = {
+      tokenizer: { icon: "token", label: "Tokenizer", value: "char-level", zh: "字符级", note: "one character = one token", noteZh: "一个字符就是一个 token" },
+      embedding: { icon: "grid", label: "Embedding", value: "token embedding", zh: "嵌入层", note: "lookup ids into vectors", noteZh: "把 token id 查成向量" },
+      position: { icon: "wave", label: "Position", value: "learned absolute", zh: "可学习绝对位置", note: "GPT-2-style position table", noteZh: "GPT-2 风格位置表" },
+      attention: { icon: "nodes", label: "Attention", value: "causal MHA", zh: "因果多头注意力", note: "masked self-attention", noteZh: "只看当前与过去 token" },
+      norm: { icon: "layers", label: "Norm", value: "LayerNorm", zh: "层归一化", note: "mean + variance normalization", noteZh: "减均值并除方差" },
+      mlp: { icon: "network", label: "MLP / FFN", value: "GELU MLP", zh: "前馈网络", note: "Linear -> GELU -> Linear", noteZh: "GPT-2 默认前馈层" },
+      head: { icon: "head", label: "LM Head", value: "next-token logits", zh: "语言模型头", note: "predict the next token", noteZh: "预测下一个 token" }
+    };
+
+    const steps = [
+      {
+        id: 0,
+        title: "GPT-2 Baseline",
+        subtitle: "GPT-2 基线模型",
+        status: "Code ready",
+        overview: "High-level view of the decoder-only Transformer used in our baseline. / 我们基线模型的高层结构，仅保留 decoder。",
+        modules: {},
+        changed: [],
+        doc: "step0_baseline.md",
+        code: ["model/baseline_gpt.py", "configs/baseline_5070.yaml", "eval/generate.py"],
+        before: "Baseline start / 从头开始",
+        after: "Vanilla GPT-2-style decoder / GPT-2 风格解码器",
+        change: "This is the reference baseline. No modern upgrade yet.",
+        changeZh: "这是参考基线，目前还没有任何现代化升级。",
+        why: "All later comparisons rely on this baseline. It is the anchor for understanding each component's impact.",
+        whyZh: "后续所有对比都基于这个基线，它是判断每个组件影响的锚点。",
+        metrics: ["Validation loss / 验证集 loss", "Training throughput / 训练速度", "Generation speed / 生成速度", "Sample quality / 生成样例质量"],
+        strip: [
+          ["Valid Loss", "pending", "bars"],
+          ["Train Tokens/s", "pending", "speed"],
+          ["Decode Tokens/s", "pending", "speed"],
+          ["KV Cache Memory", "not used", "database"],
+          ["Sample Output", "pending", "sample"]
+        ]
+      },
+      {
+        id: 1,
+        title: "BPE Tokenizer",
+        subtitle: "BPE 分词器",
+        status: "Code ready",
+        overview: "Upgrade text splitting from characters to subword tokens. / 把文本切分从字符级升级为子词级。",
+        modules: { tokenizer: { value: "byte-level BPE", zh: "BPE 子词", note: "subword tokens", noteZh: "更接近真实 GPT 分词" } },
+        changed: ["tokenizer"],
+        doc: "step1_bpe.md",
+        code: ["data/prepare_bpe.py", "configs/bpe_5070.yaml", "tokenizer/bpe_tokenizer.py"],
+        before: "Character-level tokens / 字符级 token",
+        after: "Byte-level BPE tokens / byte-level BPE",
+        change: "Replace character tokenization with byte-level BPE, closer to how real GPT-style models consume text.",
+        changeZh: "把字符级 tokenization 换成 byte-level BPE，让文本处理方式更接近真实 GPT。",
+        why: "BPE usually shortens token streams and handles mixed text better, but token-level loss must be interpreted carefully.",
+        whyZh: "BPE 通常能缩短 token 序列，也更适合混合文本；但 token-level loss 不能和字符级结果粗暴直接比较。",
+        metrics: ["Token count / token 数量", "Chars per token / 每 token 字符数", "Training speed / 训练速度", "Generated samples / 生成样例"],
+        strip: [
+          ["Token Count", "pending", "bars"],
+          ["Chars / Token", "pending", "bars"],
+          ["Train Tokens/s", "pending", "speed"],
+          ["Valid Loss", "not directly comparable", "bars"],
+          ["Sample Output", "pending", "sample"]
+        ]
+      },
+      {
+        id: 2,
+        title: "RoPE",
+        subtitle: "旋转位置编码",
+        status: "Code ready",
+        overview: "Move position information into the attention q/k rotation. / 把位置信息放进 attention 的 q/k 旋转里。",
+        modules: { position: { value: "RoPE on q/k", zh: "q/k 旋转位置编码", note: "rotary position encoding", noteZh: "在注意力内注入相对位置" } },
+        changed: ["position"],
+        doc: "step2_rope.md",
+        code: ["model/baseline_gpt.py", "configs/rope_5070.yaml", "tests/test_baseline_gpt.py"],
+        before: "Learned absolute position table / 可学习绝对位置表",
+        after: "Rotary q/k position encoding / RoPE 旋转位置编码",
+        change: "Move position information from a learned table into query/key rotations inside attention.",
+        changeZh: "把位置信息从可学习位置表挪到 attention 内部的 q/k 旋转里。",
+        why: "RoPE injects relative-position structure directly into attention scores and is widely used in modern LLMs.",
+        whyZh: "RoPE 把相对位置结构直接注入 attention 分数，因此被很多现代 LLM 使用。",
+        metrics: ["Validation loss / 验证 loss", "Longer prompts / 更长 prompt", "Sample coherence / 样例连贯性"],
+        strip: [
+          ["Valid Loss", "pending", "bars"],
+          ["Context Test", "pending", "sample"],
+          ["Train Tokens/s", "pending", "speed"],
+          ["Params", "slightly lower", "bars"],
+          ["Sample Output", "pending", "sample"]
+        ]
+      },
+      {
+        id: 3,
+        title: "RMSNorm",
+        subtitle: "RMSNorm 归一化",
+        status: "Code ready",
+        overview: "Keep RoPE fixed and swap the normalization layer. / 固定 RoPE，只替换归一化层。",
+        modules: {
+          position: { value: "RoPE on q/k", zh: "q/k 旋转位置编码", note: "kept from Step 2", noteZh: "沿用第 2 步" },
+          norm: { value: "RMSNorm", zh: "RMSNorm", note: "RMS + gain, no mean subtraction", noteZh: "不做均值中心化" }
+        },
+        changed: ["norm"],
+        doc: "step3_rmsnorm.md",
+        code: ["model/baseline_gpt.py", "configs/rmsnorm_5070.yaml", "tests/test_baseline_gpt.py"],
+        before: "LayerNorm / LayerNorm 层归一化",
+        after: "RMSNorm / RMSNorm 归一化",
+        change: "Replace LayerNorm with RMSNorm while keeping the RoPE setup fixed.",
+        changeZh: "在保持 RoPE 不变的情况下，用 RMSNorm 替换 LayerNorm。",
+        why: "RMSNorm is simpler and common in decoder-only LLMs, making it a clean normalization ablation.",
+        whyZh: "RMSNorm 更简单，也常见于 decoder-only LLM，因此适合做清晰的归一化消融。",
+        metrics: ["Validation loss / 验证 loss", "Stability / 稳定性", "Parameter count / 参数量"],
+        strip: [
+          ["Valid Loss", "pending", "bars"],
+          ["Stability", "pending", "chart"],
+          ["Params", "pending", "bars"],
+          ["Train Tokens/s", "pending", "speed"],
+          ["Sample Output", "pending", "sample"]
+        ]
+      },
+      {
+        id: 4,
+        title: "SwiGLU",
+        subtitle: "SwiGLU 前馈网络",
+        status: "Code ready",
+        overview: "Replace the GPT-2 GELU feed-forward network with a gated MLP. / 用门控 MLP 替换 GPT-2 的 GELU 前馈层。",
+        modules: {
+          position: { value: "RoPE on q/k", zh: "q/k 旋转位置编码", note: "kept from Step 2", noteZh: "沿用第 2 步" },
+          norm: { value: "RMSNorm", zh: "RMSNorm", note: "kept from Step 3", noteZh: "沿用第 3 步" },
+          mlp: { value: "SwiGLU", zh: "门控前馈层", note: "SiLU gate * value branch", noteZh: "门控分支乘 value 分支" }
+        },
+        changed: ["mlp"],
+        doc: "step4_swiglu.md",
+        code: ["model/baseline_gpt.py", "configs/swiglu_5070.yaml", "tests/test_baseline_gpt.py"],
+        before: "Linear -> GELU -> Linear / GPT-2 GELU FFN",
+        after: "SiLU gate * value -> Linear / SwiGLU 门控 FFN",
+        change: "Replace GPT-2's GELU feed-forward network with a gated SwiGLU MLP.",
+        changeZh: "把 GPT-2 的 GELU 前馈网络换成带门控的 SwiGLU MLP。",
+        why: "Gated MLPs improve expressiveness and are common in modern LLM feed-forward blocks.",
+        whyZh: "门控 MLP 能提升表达能力，是现代 LLM 前馈模块中的常见选择。",
+        metrics: ["Validation loss / 验证 loss", "Sample quality / 样例质量", "Parameter count / 参数量"],
+        strip: [
+          ["Valid Loss", "pending", "bars"],
+          ["Params", "pending", "bars"],
+          ["Train Tokens/s", "pending", "speed"],
+          ["Sample Output", "pending", "sample"],
+          ["Ablation Note", "pending", "pencil"]
+        ]
+      },
+      {
+        id: 5,
+        title: "GQA + KV Cache",
+        subtitle: "GQA 与 KV 缓存",
+        status: "Code ready",
+        overview: "Upgrade attention for more realistic autoregressive decoding. / 为自回归生成加入更现实的推理效率组件。",
+        modules: {
+          position: { value: "RoPE on q/k", zh: "q/k 旋转位置编码", note: "kept from Step 2", noteZh: "沿用第 2 步" },
+          norm: { value: "RMSNorm", zh: "RMSNorm", note: "kept from Step 3", noteZh: "沿用第 3 步" },
+          mlp: { value: "SwiGLU", zh: "门控前馈层", note: "kept from Step 4", noteZh: "沿用第 4 步" },
+          attention: { value: "GQA + KV cache", zh: "分组 KV 头与缓存", note: "fewer KV heads, cached decoding", noteZh: "减少 KV 头并复用历史 K/V" }
+        },
+        changed: ["attention"],
+        doc: "step5_gqa_kv_cache.md",
+        code: ["model/baseline_gpt.py", "configs/gqa_5070.yaml", "eval/generate.py --use_cache"],
+        before: "MHA without cached generation / 无缓存 MHA 生成",
+        after: "Grouped KV heads + cached generation / GQA + KV cache",
+        change: "Use fewer key/value heads than query heads, and reuse past K/V tensors during generation.",
+        changeZh: "使用比 query head 更少的 key/value head，并在生成时复用历史 K/V。",
+        why: "This step mainly targets decode speed and KV-cache memory, not just validation loss.",
+        whyZh: "这一步主要研究生成速度和 KV cache 显存，而不是只看验证 loss。",
+        metrics: ["Decode tokens/s / 生成速度", "KV memory / KV 显存", "Cache sample parity / 缓存生成一致性"],
+        strip: [
+          ["Decode Tokens/s", "pending", "speed"],
+          ["KV Cache Memory", "pending", "database"],
+          ["Valid Loss", "pending", "bars"],
+          ["Cache Parity", "tested", "sample"],
+          ["Sample Output", "pending", "sample"]
+        ]
+      },
+      {
+        id: 6,
+        title: "SDPA / FlashAttention",
+        subtitle: "注意力内核升级",
+        status: "Planned",
+        overview: "Keep attention math equivalent while changing the kernel. / 数学含义不变，但换更高效的注意力内核。",
+        modules: {
+          position: { value: "RoPE on q/k", zh: "q/k 旋转位置编码", note: "kept from Step 2", noteZh: "沿用第 2 步" },
+          norm: { value: "RMSNorm", zh: "RMSNorm", note: "kept from Step 3", noteZh: "沿用第 3 步" },
+          mlp: { value: "SwiGLU", zh: "门控前馈层", note: "kept from Step 4", noteZh: "沿用第 4 步" },
+          attention: { value: "fused attention", zh: "融合注意力内核", note: "SDPA / FlashAttention", noteZh: "减少显式注意力矩阵开销" }
+        },
+        changed: ["attention"],
+        doc: "architecture_roadmap.md",
+        code: ["model/baseline_gpt.py", "planned config", "benchmark script"],
+        before: "Explicit q @ k attention / 显式 attention 矩阵",
+        after: "Fused attention kernel / 融合注意力内核",
+        change: "Replace the readable explicit attention matrix with a fused attention kernel for speed and memory efficiency.",
+        changeZh: "把便于阅读的显式 attention 矩阵计算，替换成更高效的 fused attention kernel。",
+        why: "This is mainly an engineering upgrade: the math should stay the same, but training speed and memory can improve.",
+        whyZh: "这主要是工程优化：数学含义基本不变，但训练速度和显存占用可能明显改善。",
+        metrics: ["Training tokens/s / 训练速度", "Peak memory / 峰值显存", "Loss parity / loss 一致性"],
+        strip: [
+          ["Train Tokens/s", "planned", "speed"],
+          ["Peak Memory", "planned", "database"],
+          ["Loss Parity", "planned", "bars"],
+          ["Kernel", "planned", "nodes"],
+          ["Sample Output", "planned", "sample"]
+        ]
+      },
+      {
+        id: 7,
+        title: "MoE or MLA",
+        subtitle: "前沿模块探索",
+        status: "Planned",
+        overview: "Use the tiny model as a controlled playground for one frontier idea. / 在小模型里受控探索一个前沿模块。",
+        modules: {
+          position: { value: "RoPE path", zh: "现代位置路径", note: "modern position path", noteZh: "沿用现代位置编码" },
+          norm: { value: "RMSNorm", zh: "RMSNorm", note: "modern norm path", noteZh: "沿用现代归一化" },
+          mlp: { value: "frontier block", zh: "前沿模块", note: "MoE or MLA experiment", noteZh: "尝试 MoE 或 MLA" },
+          attention: { value: "modern attention", zh: "现代注意力路径", note: "GQA/cache/fused attention", noteZh: "综合前面注意力升级" }
+        },
+        changed: ["mlp", "attention"],
+        doc: "architecture_roadmap.md",
+        code: ["model/", "planned config", "tests/"],
+        before: "Dense Transformer block / 稠密 Transformer block",
+        after: "One frontier component / 一个前沿组件",
+        change: "Try one frontier architecture idea in a tiny controlled setting instead of copying an entire large model.",
+        changeZh: "在小模型里尝试一个前沿架构点，而不是直接复刻完整大模型。",
+        why: "This keeps the project educational: the goal is to understand one idea deeply, not to chase every trend.",
+        whyZh: "这样项目仍然保持教学性：重点是理解一个想法，而不是追热点堆功能。",
+        metrics: ["Complexity / 复杂度", "Loss / loss", "Speed tradeoff / 速度权衡"],
+        strip: [
+          ["Complexity", "planned", "nodes"],
+          ["Valid Loss", "planned", "bars"],
+          ["Train Tokens/s", "planned", "speed"],
+          ["Params Active", "planned", "database"],
+          ["Failure Cases", "planned", "sample"]
+        ]
+      },
+      {
+        id: 8,
+        title: "Tiny SFT",
+        subtitle: "指令微调",
+        status: "Planned",
+        overview: "Connect architecture learning to the ChatGPT-style training pipeline. / 把架构学习连接到 ChatGPT 式训练流程。",
+        modules: {
+          tokenizer: { value: "BPE tokenizer", zh: "BPE 分词器", note: "instruction text friendly", noteZh: "更适合指令文本" },
+          head: { value: "SFT objective", zh: "SFT 目标", note: "learn prompt -> response format", noteZh: "学习 prompt 到 response 格式" }
+        },
+        changed: ["head"],
+        doc: "architecture_roadmap.md",
+        code: ["planned dataset", "planned train_sft.py", "planned eval prompts"],
+        before: "Next-token pretraining only / 只做 next-token 预训练",
+        after: "Toy instruction following / 玩具级指令跟随",
+        change: "Fine-tune the tiny model on prompt-response examples so it can follow a simple instruction format.",
+        changeZh: "用 prompt-response 样例微调小模型，让它学会最基本的指令格式。",
+        why: "SFT connects architecture learning to the ChatGPT-style training pipeline, while staying honest about small-model limits.",
+        whyZh: "SFT 把架构学习连接到 ChatGPT 式训练流程，但仍然承认小模型能力有限。",
+        metrics: ["Instruction samples / 指令样例", "Format following / 格式跟随", "Failure cases / 失败案例"],
+        strip: [
+          ["Format Following", "planned", "sample"],
+          ["Prompt Set", "planned", "book"],
+          ["Valid Loss", "planned", "bars"],
+          ["Failure Cases", "planned", "pencil"],
+          ["Sample Output", "planned", "sample"]
+        ]
+      }
+    ];
+
+    const timeline = document.querySelector("#timeline");
+    const architecture = document.querySelector("#architecture");
+    const statusBadge = document.querySelector("#statusBadge");
+    const overviewText = document.querySelector("#overviewText");
+    const changeText = document.querySelector("#changeText");
+    const changeTextZh = document.querySelector("#changeTextZh");
+    const whyText = document.querySelector("#whyText");
+    const whyTextZh = document.querySelector("#whyTextZh");
+    const codeList = document.querySelector("#codeList");
+    const metricList = document.querySelector("#metricList");
+    const beforeText = document.querySelector("#beforeText");
+    const afterText = document.querySelector("#afterText");
+    const metricStrip = document.querySelector("#metricStrip");
+
+    function icon(name) {
+      return icons[name] || icons.code;
+    }
+
+    function fillStaticIcons() {
+      document.querySelector("#brandIcon").innerHTML = `${icon("code")} <span>gpt2-to-2026</span>`;
+      document.querySelector("#openRoadmap").innerHTML = `${icon("map")} <span>Open Roadmap / 打开路线图</span>`;
+      document.querySelector("#githubLink").innerHTML = `<span>View on GitHub</span> ${icon("external")}`;
+      document.querySelectorAll("[data-icon]").forEach((node) => {
+        node.innerHTML = icon(node.dataset.icon);
+      });
+    }
+
+    function mergedModules(step) {
+      return Object.fromEntries(
+        Object.entries(baseModules).map(([key, value]) => [
+          key,
+          { ...value, ...(step.modules[key] || {}) }
+        ])
+      );
+    }
+
+    function renderTimeline(activeId) {
+      timeline.innerHTML = steps.map(step => `
+        <button class="step-button ${step.id === activeId ? "active" : ""}" data-step="${step.id}">
+          <span class="step-number">${step.id}</span>
+          <span>
+            <span class="step-title">${step.title}</span>
+            <span class="step-subtitle">${step.subtitle}</span>
+          </span>
+          <span class="step-dot"></span>
+        </button>
+      `).join("");
+    }
+
+    function renderStep(step) {
+      renderTimeline(step.id);
+      window.history.replaceState(null, "", `#step${step.id}`);
+      const modules = mergedModules(step);
+      overviewText.textContent = step.overview;
+      statusBadge.textContent = `Step ${step.id}: ${step.status}`;
+      architecture.innerHTML = Object.entries(modules).map(([key, item]) => {
+        const state = step.status === "Planned" && step.changed.includes(key) ? "future" : step.changed.includes(key) ? "changed" : "";
+        return `
+          <article class="module ${state}">
+            <span class="module-icon">${icon(item.icon)}</span>
+            <div class="module-label">${item.label}</div>
+            <div class="module-value">${item.value}<br>${item.zh}</div>
+            <div class="module-note">${item.note}<br>${item.noteZh}</div>
+          </article>
+        `;
+      }).join("");
+      changeText.textContent = step.change;
+      changeTextZh.textContent = step.changeZh;
+      whyText.textContent = step.why;
+      whyTextZh.textContent = step.whyZh;
+      codeList.innerHTML = step.code.map(item => `<li><code>${item}</code></li>`).join("");
+      metricList.innerHTML = step.metrics.map(item => `<li>${item}</li>`).join("");
+      beforeText.textContent = step.before;
+      afterText.textContent = step.after;
+      metricStrip.innerHTML = step.strip.map(([name, value, iconName]) => `
+        <div class="metric-cell">
+          <div class="metric-name"><span class="mini-icon">${icon(iconName)}</span>${name}</div>
+          <div class="metric-value">${value}</div>
+        </div>
+      `).join("");
+    }
+
+    timeline.addEventListener("click", event => {
+      const button = event.target.closest("[data-step]");
+      if (!button) return;
+      renderStep(steps[Number(button.dataset.step)]);
+    });
+
+    fillStaticIcons();
+    const hashMatch = window.location.hash.match(/^#step(\d+)$/);
+    const initial = hashMatch ? steps.find(step => step.id === Number(hashMatch[1])) : steps[0];
+    renderStep(initial || steps[0]);
+  </script>
+</body>
+</html>

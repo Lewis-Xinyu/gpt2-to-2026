@@ -25,6 +25,21 @@ Start with the visual guide:
 
 先从图解导览开始：
 
+[![Interactive Architecture Viewer preview](docs/assets/architecture_viewer_preview.png)](https://lewis-xinyu.github.io/gpt2-to-2026/architecture_viewer.html)
+
+The preview above links to the interactive architecture viewer. GitHub README
+cannot run custom HTML/JavaScript inline, so the README uses a static screenshot
+as the entrance and keeps the actual interactive demo in `docs/`. After GitHub
+Pages is enabled for the `docs/` folder, the screenshot will open the live demo.
+
+上面的预览图可以点击进入交互式架构页。GitHub README 不能直接内嵌运行自定义
+HTML/JavaScript，所以 README 里放静态预览图，真正的交互 Demo 放在 `docs/` 目录。
+开启 GitHub Pages 并选择 `docs/` 目录后，点击预览图就会打开在线 Demo。
+
+- [Live Demo / 在线 Demo](https://lewis-xinyu.github.io/gpt2-to-2026/architecture_viewer.html)
+- [Interactive Architecture Viewer / 交互式架构可视化](docs/architecture_viewer.html)  
+  Open this file locally, or serve `docs/` with GitHub Pages later.  
+  可以本地直接打开这个 HTML 文件；后续也可以用 GitHub Pages 发布成在线 Demo。
 - [Architecture Roadmap / 架构路线图](docs/architecture_roadmap.md)
 
 ```text
